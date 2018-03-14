@@ -1,0 +1,184 @@
+package com.youncta.manufacturing.odutester;
+
+import java.io.IOException;
+
+import com.youncta.manufacturing.odutester.testproc.TestProc;
+import com.youncta.manufacturing.odutester.testproc.TestProc.OnStepComplete;
+import com.youncta.manufacturing.odutester.view.ControlPanelViewController;
+import com.youncta.manufacturing.odutester.view.LogPanelViewController;
+import com.youncta.manufacturing.odutester.view.ControlPanelViewController.OnControlPanelAction;
+
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.BorderPane;
+import javafx.stage.Stage;
+
+public class MainAppJfx extends Application implements OnControlPanelAction, OnStepComplete {
+
+	private Stage primaryStage;
+    private BorderPane rootLayout;
+    private ControlPanelViewController controlPanelViewController;
+    private LogPanelViewController logPanelViewController;
+    
+    private static TestProc testProc;
+    
+	@Override
+	public void start(Stage primaryStage) {
+		this.primaryStage = primaryStage;
+		this.primaryStage.setTitle("Automatic Digital Board Tester");
+		
+		initRootLayout();
+		
+		showMainView();
+	}
+
+    /**
+     * Initializes the root layout.
+     */
+    public void initRootLayout() {
+        try {
+            // Load root layout from fxml file.
+            FXMLLoader loader = new FXMLLoader();
+            loader.setLocation(MainAppJfx.class.getResource("fxml/RootView.fxml"));
+            rootLayout = (BorderPane) loader.load();
+
+            // Show the scene containing the root layout.
+            Scene scene = new Scene(rootLayout);
+            primaryStage.setScene(scene);
+            primaryStage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    
+
+    /**
+     * Shows the person overview inside the root layout.
+     */
+    public void showMainView() {
+        try {
+            // Load person overview.
+            FXMLLoader loader1 = new FXMLLoader();
+            loader1.setLocation(MainAppJfx.class.getResource("fxml/ControlPanelView.fxml"));
+            AnchorPane controlPanelView = (AnchorPane) loader1.load();
+
+            // Give the controller access to the main app.
+            controlPanelViewController  = loader1.getController();
+            controlPanelViewController.setMainApp(this);
+            
+            FXMLLoader loader2 = new FXMLLoader();
+            loader2.setLocation(MainAppJfx.class.getResource("fxml/LogPanelView.fxml"));
+            AnchorPane logPanelView = (AnchorPane) loader2.load();
+            
+            // Give the controller access to the main app.
+            logPanelViewController  = loader2.getController();
+            logPanelViewController.setMainApp(this);
+
+            
+            // Set person overview into the center of root layout.
+            rootLayout.setTop(controlPanelView);
+            rootLayout.setCenter(logPanelView);
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Returns the main stage.
+     * @return
+     */
+    public Stage getPrimaryStage() {
+        return primaryStage;
+    }
+
+    
+	public static void main(String[] args) {
+		
+		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+		    public void run() {
+		    	testProc.shutdown();
+		        System.out.println("Exiting");
+		    }
+		}));
+		
+		launch(args);
+	}
+	
+	
+	private void showLogLine(final String msg) {
+		Platform.runLater(new Runnable() {
+            @Override public void run() {
+            	logPanelViewController.addLine(msg);
+            }
+        });
+	}
+	
+	public void handleOnStart(String partNumber, String serialNumber, boolean forcedSetup) {
+		
+		logPanelViewController.clear();
+		// TODO Auto-generated method stub
+		showLogLine("Starting setup with Part Number  " + partNumber + " and Serial Number " + serialNumber);
+		
+		testProc = new TestProc(this, "/dev/ttyUSB0");
+
+		String tempMacAddress = "00:" + serialNumber.substring(3, 5) + ":" + serialNumber.substring(5, 7) + ":" + serialNumber.substring(7, 9) + ":" + serialNumber.substring(9, 11) + ":00";
+		testProc.init(partNumber, serialNumber, tempMacAddress);
+
+		testProc.start();
+		
+		
+	}
+
+	public void handleOnStop() {
+		// TODO Auto-generated method stub
+	
+		testProc.setStatus(false);
+	}
+
+
+
+	@Override
+	public void onTestAborted() {
+		// TODO Auto-generated method stub
+		System.out.println("Test");
+		showLogLine("Test aborted");
+
+	}
+
+	@Override
+	public void onTestFailed(String result) {
+		// TODO Auto-generated method stub
+		showLogLine("Test failed: " +  result);
+
+	}
+
+
+	@Override
+	public void onTestComplete() {
+		// TODO Auto-generated method stub
+		showLogLine("Test PASSED ");
+
+	}
+
+	@Override
+	public void onProgressNotification(String msg) {
+		// TODO Auto-generated method stub
+		showLogLine(msg);
+
+	}
+
+	@Override
+	public void onTestStarted() {
+		// TODO Auto-generated method stub
+		showLogLine("Test started ");
+
+	}
+
+	
+	
+}
